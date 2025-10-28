@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BST VLM DEMO</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 配置Tailwind主题 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#10B981',
+            danger: '#EF4444',
+            neutral: '#64748B'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .shadow-soft {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .transition-all-300 {
+        transition: all 0.3s ease;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+  <!-- 顶部导航 -->
+  <header class="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-eye text-primary text-2xl"></i>
+        <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
+          BST VLM Demostration
+        </h1>
+      </div>
+      <div class="text-sm text-gray-500">
+        基于 BST A2000 SDK
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="container mx-auto px-4 pt-20 pb-16">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+      <!-- 左侧：摄像头区域 -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- 摄像头画面 -->
+        <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+          <div class="p-4 border-b border-gray-100">
+            <h2 class="font-semibold text-lg flex items-center">
+              <i class="fa fa-video-camera text-primary mr-2"></i>摄像头画面
+            </h2>
+          </div>
+          <div class="p-4">
+            <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-video">
+              <video id="cameraPreview" class="w-full h-full object-cover" autoplay muted playsinline></video>
+              <canvas id="canvas" class="hidden absolute top-0 left-0 w-full h-full"></canvas>
+              <!-- 加载指示器 -->
+              <div id="loadingOverlay" class="hidden absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div class="bg-white p-3 rounded-full">
+                  <i class="fa fa-circle-o-notch fa-spin text-primary text-xl"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 控制区域 -->
+        <div class="bg-white rounded-xl shadow-soft p-4">
+          <h2 class="font-semibold text-lg mb-4 flex items-center">
+            <i class="fa fa-sliders text-primary mr-2"></i>设置
+          </h2>
+          
+          <div class="space-y-4">
+            <!-- 摄像头选择 -->
+            <div>
+              <label for="cameraSelect" class="block text-sm font-medium text-gray-700 mb-1">
+                摄像头选择
+              </label>
+              <div class="relative">
+                <select id="cameraSelect" class="block w-full pl-3 pr-10 py-2.5 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-lg appearance-none bg-gray-50">
+                  <option value="">加载摄像头中...</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                  <i class="fa fa-chevron-down text-xs"></i>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 对话间隔 -->
+            <div>
+              <label for="intervalInput" class="block text-sm font-medium text-gray-700 mb-1">
+                对话间隔 (秒)
+              </label>
+              <div class="relative">
+                <input 
+                  type="number" 
+                  id="intervalInput" 
+                  min="1" 
+                  value="5" 
+                  class="block w-full pl-3 pr-10 py-2.5 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-lg bg-gray-50"
+                >
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-700">
+                  s
+                </div>
+              </div>
+            </div>
+            
+            <!-- 提示文本输入 -->
+            <div>
+              <label for="promptInput" class="block text-sm font-medium text-gray-700 mb-1">
+                分析提示
+              </label>
+              <input 
+                type="text" 
+                id="promptInput" 
+                placeholder="请简略描述图片内容..." 
+                value="请简略描述图片内容"
+                class="block w-full pl-3 pr-3 py-2.5 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary rounded-lg bg-gray-50"
+              >
+            </div>
+            
+            <!-- 控制按钮 -->
+            <div class="pt-2">
+              <button 
+                id="controlButton" 
+                class="w-full py-3 px-4 bg-secondary hover:bg-secondary/90 text-white font-medium rounded-lg transition-all-300 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg"
+              >
+                <i class="fa fa-play"></i>
+                <span>开始对话</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：对话区域 -->
+      <div class="lg:col-span-3">
+        <div class="bg-white rounded-xl shadow-soft h-full flex flex-col">
+          <div class="p-4 border-b border-gray-100">
+            <h2 class="font-semibold text-lg flex items-center">
+              <i class="fa fa-comments text-primary mr-2"></i>对话内容
+            </h2>
+          </div>
+          
+          <!-- 对话内容区域 -->
+          <div id="conversationContainer" class="flex-1 p-4 overflow-y-auto space-y-4">
+            <!-- 初始提示信息 -->
+            <div class="flex items-start space-x-3 animate-fadeIn">
+              <div class="flex-shrink-0 bg-primary/10 p-2 rounded-full">
+                <i class="fa fa-robot text-primary"></i>
+              </div>
+              <div class="bg-gray-100 rounded-lg rounded-tl-none px-4 py-3 max-w-[85%]">
+                <p class="text-gray-800">欢迎使用BST视觉对话助手，请点击"开始对话"按钮启动摄像头并开始分析画面。</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 状态指示器 -->
+          <div id="statusBar" class="p-3 border-t border-gray-100 bg-gray-50 text-sm text-gray-500 flex items-center">
+            <i class="fa fa-info-circle mr-2"></i>
+            <span>就绪，等待开始</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="bg-white border-t border-gray-200 py-4">
+    <div class="container mx-auto px-4 text-center text-sm text-gray-500">
+      <p>BST A2000 VLM DEMO &copy; 2026 | 基于BST A2000 SDK构建</p>
+    </div>
+  </footer>
+
+  <script>
+    // DOM元素
+    const cameraPreview = document.getElementById('cameraPreview');
+    const canvas = document.getElementById('canvas');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const intervalInput = document.getElementById('intervalInput');
+    const promptInput = document.getElementById('promptInput');
+    const controlButton = document.getElementById('controlButton');
+    const conversationContainer = document.getElementById('conversationContainer');
+    const statusBar = document.getElementById('statusBar');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // 应用状态
+    let isRunning = false;
+    let stream = null;
+    let currentInterval = null;
+    let isProcessing = false;
+    // 请替换为你的实际API密钥
+    const API_KEY = 'sk-lzgzxqxtyobtqeyopbuqwhiihlnnqhdeftkdxkctzaowvjxz';
+    
+    // 初始化摄像头选择
+    async function initCameraSelect() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        cameraSelect.innerHTML = '';
+        
+        if (videoDevices.length === 0) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = '未检测到摄像头';
+          option.disabled = true;
+          cameraSelect.appendChild(option);
+          return;
+        }
+        
+        videoDevices.forEach(device => {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          option.textContent = device.label || `摄像头 ${cameraSelect.options.length + 1}`;
+          cameraSelect.appendChild(option);
+        });
+        
+        // 自动启动第一个摄像头
+        startCamera(videoDevices[0].deviceId);
+      } catch (error) {
+        addMessage('系统', '获取摄像头列表失败: ' + error.message, 'error');
+        console.error('Error enumerating devices:', error);
+      }
+    }
+    
+    // 启动摄像头
+    async function startCamera(deviceId) {
+      try {
+        // 停止现有流
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        
+        // 获取新的媒体流
+        const constraints = {
+          video: { 
+            deviceId: deviceId ? { exact: deviceId } : true,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        };
+        
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        cameraPreview.srcObject = stream;
+        updateStatus('摄像头已启动，准备就绪');
+      } catch (error) {
+        addMessage('系统', '启动摄像头失败: ' + error.message, 'error');
+        console.error('Error starting camera:', error);
+      }
+    }
+    
+    // 捕获当前画面并转换为完整的Data URL（包含前缀）
+    function captureImage() {
+      return new Promise((resolve) => {
+        canvas.width = cameraPreview.videoWidth;
+        canvas.height = cameraPreview.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+        
+        // 生成包含完整前缀的Data URL（API要求的格式）
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(dataUrl);
+      });
+    }
+    
+    // 发送图像到SiliconFlow API（支持流式响应）
+    async function sendToSiliconFlow(imageData, userText) {
+      const url = 'https://api.siliconflow.cn/v1/chat/completions';
+      
+      const requestBody = {
+        model: 'Qwen/Qwen3-VL-8B-Instruct',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageData
+                }
+              },
+              {
+                type: "text",
+                text: userText || "请描述并分析这张图片的内容"
+              }
+            ]
+          }
+        ],
+        stream: true,
+        max_tokens: 4096,
+        temperature: 0.7
+      };
+      
+      const options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      };
+      
+      try {
+        const response = await fetch(url, options);
+        
+        if (!response.ok) {
+          let errorDetails = '';
+          try {
+            const errorData = await response.json();
+            errorDetails = errorData?.error?.message || JSON.stringify(errorData);
+          } catch (e) {
+            errorDetails = `HTTP错误: ${response.status} ${response.statusText}`;
+          }
+          throw new Error(`API请求失败: ${response.status}，详情: ${errorDetails}`);
+        }
+        
+        // 流式响应处理
+        if (response.body && response.headers.get('content-type')?.includes('text/event-stream')) {
+          return handleStreamingResponse(response.body);
+        } else {
+          // 兼容非流式响应
+          const data = await response.json();
+          console.log('API返回结果:', data);
+          return data;
+        }
+      } catch (error) {
+        console.error('API请求错误:', error);
+        throw error;
+      }
+    }
+    
+    // 处理流式响应
+    function handleStreamingResponse(readableStream) {
+      return new Promise((resolve, reject) => {
+        const reader = readableStream.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        let buffer = '';
+        
+        function readNextChunk() {
+          reader.read().then(({ done, value }) => {
+            if (done) {
+              // 检查是否有完整响应可以解析
+              if (fullResponse) {
+                try {
+                  // 尝试将累积的响应解析为完整JSON
+                  // 注意：实际实现可能需要根据API的流式格式调整
+                  resolve({ choices: [{ message: { content: fullResponse } }] });
+                } catch (e) {
+                  resolve({ choices: [{ message: { content: fullResponse } }] });
+                }
+              } else {
+                reject(new Error('流式响应完成但未收到有效数据'));
+              }
+              return;
+            }
+            
+            // 解码新接收到的数据
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+            
+            // 处理可能的多个事件块
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // 保留不完整的最后一行
+            
+            for (const line of lines) {
+              if (line.trim() === '') continue;
+              
+              if (line.startsWith('data: ')) {
+                const dataPart = line.slice(6);
+                if (dataPart === '[DONE]') {
+                  // 流式响应结束标记
+                  resolve({ choices: [{ message: { content: fullResponse } }] });
+                  return;
+                }
+                
+                try {
+                  const parsedData = JSON.parse(dataPart);
+                  // 提取并累积响应内容
+                  if (parsedData?.choices?.length > 0) {
+                    const delta = parsedData.choices[0]?.delta;
+                    if (delta?.content) {
+                      fullResponse += delta.content;
+                      // 实时更新UI（如果需要）
+                      updateStreamingMessage(fullResponse);
+                    } else if (delta?.reasoning_content) {
+                      fullResponse += delta.reasoning_content;
+                      updateStreamingMessage(fullResponse);
+                    }
+                  }
+                } catch (e) {
+                  console.warn('解析流式响应块时出错:', e);
+                  // 继续处理，不中断整个流程
+                }
+              }
+            }
+            
+            // 继续读取下一个数据块
+            readNextChunk();
+          }).catch(error => {
+            reject(new Error(`处理流式响应时出错: ${error.message}`));
+          });
+        }
+        
+        // 开始读取第一个数据块
+        readNextChunk();
+      });
+    }
+    
+    // 更新流式消息显示（需要在HTML中创建相应的消息元素）
+    // 添加一个新函数来完全清空所有历史消息（包括欢迎消息）
+    function clearAllMessages() {
+      const conversationContainer = document.getElementById('conversationContainer');
+      // 完全清空所有子元素
+      conversationContainer.innerHTML = '';
+    }
+    
+    // 修改updateStreamingMessage函数，在输出前清空历史消息
+    function updateStreamingMessage(content) {
+      const conversationContainer = document.getElementById('conversationContainer');
+      let streamingMessage = conversationContainer.querySelector('.streaming-message');
+      
+      if (!streamingMessage) {
+        // 输出新消息前，先清空所有历史消息
+        clearAllMessages();
+        
+        // 如果不存在流式消息元素，创建一个
+        streamingMessage = document.createElement('div');
+        streamingMessage.className = 'message-item streaming-message bg-blue-50 p-4 rounded-lg mb-4';
+        streamingMessage.innerHTML = `
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">AI</div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-medium text-gray-800">BST VLM</span>
+                <span class="text-xs text-gray-500">${new Date().toLocaleTimeString()}</span>
+              </div>
+              <div class="text-gray-700 message-content">${content}</div>
+            </div>
+          </div>
+        `;
+        conversationContainer.appendChild(streamingMessage);
+      } else {
+        // 更新现有流式消息内容
+        const contentElement = streamingMessage.querySelector('.message-content');
+        if (contentElement) {
+          contentElement.textContent = content;
+        }
+      }
+      
+      // 改进的滚动逻辑 - 使用setTimeout确保DOM更新完成后再滚动
+      setTimeout(() => {
+        conversationContainer.scrollTop = conversationContainer.scrollHeight;
+      }, 0);
+    }
+    
+    // 修改addMessage函数，在添加新消息前清空历史消息
+    function addMessage(sender, content, type = 'info') {
+      const conversationContainer = document.getElementById('conversationContainer');
+      
+      // 添加新消息前，先清空所有历史消息
+      clearAllMessages();
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'flex items-start space-x-3 animate-fadeIn';
+      
+      let icon, bgColor;
+      
+      switch (type) {
+        case 'ai':
+          icon = 'fa-robot';
+          bgColor = 'bg-primary/10';
+          break;
+        case 'error':
+          icon = 'fa-exclamation-circle';
+          bgColor = 'bg-red-50';
+          break;
+        default:
+          icon = 'fa-info-circle';
+          bgColor = 'bg-gray-50';
+      }
+      
+      messageDiv.innerHTML = `
+        <div class="flex-shrink-0 ${bgColor} p-2 rounded-full">
+          <i class="fa ${icon} ${type === 'error' ? 'text-red-500' : 'text-primary'}"></i>
+        </div>
+        <div>
+          <div class="text-xs font-medium text-gray-500 mb-1">${sender} · ${new Date().toLocaleTimeString()}</div>
+          <div class="bg-gray-100 rounded-lg rounded-tl-none px-4 py-3 max-w-[85%] break-words">
+            <p class="text-gray-800 whitespace-pre-line">${content}</p>
+          </div>
+        </div>
+      `;
+      
+      conversationContainer.appendChild(messageDiv);
+      conversationContainer.scrollTop = conversationContainer.scrollHeight;
+    }
+    
+    // 在文件末尾添加防抖函数，用于优化滚动性能
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+    
+    // 为window对象添加resize事件监听，确保容器大小变化时也能正确滚动
+    window.addEventListener('resize', debounce(() => {
+      const conversationContainer = document.getElementById('conversationContainer');
+      conversationContainer.scrollTop = conversationContainer.scrollHeight;
+    }, 200));
+    
+    // 修改analyzeImage函数以支持流式处理
+    async function analyzeImage() {
+      if (!stream || isProcessing) return false;
+      
+      try {
+        // 显示加载状态
+        loadingOverlay.classList.remove('hidden');
+        isProcessing = true;
+        updateStatus('正在分析图像...');
+        
+        // 捕获图像
+        const imageData = await captureImage();
+        if (!imageData) {
+          throw new Error('无法捕获图像数据');
+        }
+        
+        // 发送到API（会处理流式响应）
+        const result = await sendToSiliconFlow(imageData, promptInput.value);
+        
+        // 处理返回结果
+        let answer = '';
+        
+        // 尝试多种可能的响应格式
+        if (result?.choices?.length > 0) {
+          const message = result.choices[0].message;
+          
+          // 首先检查Qwen3-VL模型特有的reasoning_content字段
+          if (message?.reasoning_content) {
+            answer = message.reasoning_content;
+          } 
+          // 然后检查常规的content字段
+          else if (message?.content) {
+            answer = message.content;
+          }
+        } 
+        // 其他可能的格式
+        else if (result?.data?.content) {
+          answer = result.data.content;
+        } else if (result?.content) {
+          answer = result.content;
+        } else if (typeof result === 'string') {
+          answer = result;
+        }
+        
+        // 移除流式消息标记，使其成为最终消息
+        const conversationContainer = document.getElementById('conversationContainer');
+        const streamingMessage = conversationContainer.querySelector('.streaming-message');
+        if (streamingMessage) {
+          streamingMessage.classList.remove('streaming-message');
+        } else if (answer) {
+          // 如果没有流式消息（可能是非流式响应），添加常规消息
+          // 确保只添加一条消息
+          clearPreviousMessages();
+          addMessage('AI助手', answer, 'ai');
+        }
+        
+        return true;
+      } catch (error) {
+        addMessage('系统', '分析失败: ' + error.message, 'error');
+        console.error('分析图像时出错:', error);
+        return false;
+      } finally {
+        // 隐藏加载状态
+        loadingOverlay.classList.add('hidden');
+        isProcessing = false;
+      }
+    }
+    
+    // 自动对话流程
+    async function startConversationLoop() {
+      if (!isRunning) return;
+      
+      const success = await analyzeImage();
+      
+      // 设置下一次分析
+      if (isRunning && success) {
+        const interval = parseInt(intervalInput.value) * 1000 || 5000;
+        updateStatus(`分析完成，将在 ${interval/1000} 秒后再次分析`);
+        
+        currentInterval = setTimeout(startConversationLoop, interval);
+      } else if (!isRunning) {
+        updateStatus('已停止');
+      }
+    }
+    
+    // 切换对话状态
+    function toggleConversation() {
+      if (isRunning) {
+        // 停止对话
+        isRunning = false;
+        if (currentInterval) {
+          clearTimeout(currentInterval);
+          currentInterval = null;
+        }
+        controlButton.innerHTML = '<i class="fa fa-play"></i><span>开始对话</span>';
+        controlButton.classList.remove('bg-danger', 'hover:bg-danger/90');
+        controlButton.classList.add('bg-secondary', 'hover:bg-secondary/90');
+        updateStatus('已停止');
+      } else {
+        // 开始对话
+        if (!API_KEY || API_KEY === 'YOUR_API_KEY') {
+          addMessage('系统', '请先设置有效的API密钥', 'error');
+          return;
+        }
+        
+        if (!stream) {
+          const selectedDeviceId = cameraSelect.value;
+          if (selectedDeviceId) {
+            startCamera(selectedDeviceId).then(() => {
+              startProcess();
+            });
+          } else {
+            addMessage('系统', '请先选择一个可用的摄像头', 'error');
+            return;
+          }
+        } else {
+          startProcess();
+        }
+      }
+    }
+    
+    // 开始处理流程
+    // 找到startProcess函数，替换为以下代码
+    function startProcess() {
+    // 清除对话区域中除初始欢迎消息外的所有内容
+    clearPreviousMessages();
+    
+    isRunning = true;
+    controlButton.innerHTML = '<i class="fa fa-stop"></i><span>停止对话</span>';
+    controlButton.classList.remove('bg-secondary', 'hover:bg-secondary/90');
+    controlButton.classList.add('bg-danger', 'hover:bg-danger/90');
+    updateStatus('正在进行分析...');
+    startConversationLoop();
+    }
+    
+    // 添加一个新函数来清除之前的消息
+    function clearPreviousMessages() {
+    const conversationContainer = document.getElementById('conversationContainer');
+    
+    // 保留第一个子元素（初始欢迎消息），删除其他所有子元素
+    while (conversationContainer.children.length > 1) {
+    conversationContainer.removeChild(conversationContainer.lastChild);
+    }
+    }
+    
+    // 修改analyzeImage函数，确保在处理结果前只保留当前的流式消息
+    async function analyzeImage() {
+    if (!stream || isProcessing) return false;
+    
+    try {
+    // 显示加载状态
+    loadingOverlay.classList.remove('hidden');
+    isProcessing = true;
+    updateStatus('正在分析图像...');
+    
+    // 捕获图像
+    const imageData = await captureImage();
+    if (!imageData) {
+    throw new Error('无法捕获图像数据');
+    }
+    
+    // 发送到API（会处理流式响应）
+    const result = await sendToSiliconFlow(imageData, promptInput.value);
+    
+    // 处理返回结果
+    let answer = '';
+    
+    // 尝试多种可能的响应格式
+    if (result?.choices?.length > 0) {
+    const message = result.choices[0].message;
+    
+    // 首先检查Qwen3-VL模型特有的reasoning_content字段
+    if (message?.reasoning_content) {
+    answer = message.reasoning_content;
+    } 
+    // 然后检查常规的content字段
+    else if (message?.content) {
+    answer = message.content;
+    }
+    } 
+    // 其他可能的格式
+    else if (result?.data?.content) {
+    answer = result.data.content;
+    } else if (result?.content) {
+    answer = result.content;
+    } else if (typeof result === 'string') {
+    answer = result;
+    }
+    
+    // 移除流式消息标记，使其成为最终消息
+    const conversationContainer = document.getElementById('conversationContainer');
+    const streamingMessage = conversationContainer.querySelector('.streaming-message');
+    if (streamingMessage) {
+    streamingMessage.classList.remove('streaming-message');
+    } else if (answer) {
+    // 如果没有流式消息（可能是非流式响应），添加常规消息
+    // 确保只添加一条消息
+    clearPreviousMessages();
+    addMessage('AI助手', answer, 'ai');
+    }
+    
+    return true;
+    } catch (error) {
+    addMessage('系统', '分析失败: ' + error.message, 'error');
+    console.error('分析图像时出错:', error);
+    return false;
+    } finally {
+    // 隐藏加载状态
+    loadingOverlay.classList.add('hidden');
+    isProcessing = false;
+    }
+    }
+    
+    // 添加消息到对话区域
+    function addMessage(sender, content, type = 'info') {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'flex items-start space-x-3 animate-fadeIn';
+      
+      let icon, bgColor;
+      
+      switch (type) {
+        case 'ai':
+          icon = 'fa-robot';
+          bgColor = 'bg-primary/10';
+          break;
+        case 'error':
+          icon = 'fa-exclamation-circle';
+          bgColor = 'bg-red-50';
+          break;
+        default:
+          icon = 'fa-info-circle';
+          bgColor = 'bg-gray-50';
+      }
+      
+      messageDiv.innerHTML = `
+        <div class="flex-shrink-0 ${bgColor} p-2 rounded-full">
+          <i class="fa ${icon} ${type === 'error' ? 'text-red-500' : 'text-primary'}"></i>
+        </div>
+        <div>
+          <div class="text-xs font-medium text-gray-500 mb-1">${sender} · ${new Date().toLocaleTimeString()}</div>
+          <div class="bg-gray-100 rounded-lg rounded-tl-none px-4 py-3 max-w-[85%]">
+            <p class="text-gray-800 whitespace-pre-line">${content}</p>
+          </div>
+        </div>
+      `;
+      
+      conversationContainer.appendChild(messageDiv);
+      conversationContainer.scrollTop = conversationContainer.scrollHeight;
+    }
+    
+    // 更新状态信息
+    function updateStatus(text) {
+      statusBar.innerHTML = `<i class="fa fa-info-circle mr-2"></i><span>${text}</span>`;
+    }
+    
+    // 事件监听
+    cameraSelect.addEventListener('change', (e) => {
+      const wasRunning = isRunning;
+      
+      if (wasRunning) {
+        toggleConversation();
+      }
+      
+      startCamera(e.target.value).then(() => {
+        if (wasRunning) {
+          toggleConversation();
+        }
+      });
+    });
+    
+    controlButton.addEventListener('click', toggleConversation);
+    
+    // 页面加载完成后初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      // 检查浏览器支持
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        addMessage('系统', '您的浏览器不支持摄像头访问，请使用现代浏览器', 'error');
+        return;
+      }
+      
+      // 初始化摄像头选择
+      initCameraSelect();
+      
+      // 添加CSS动画
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease forwards;
+        }
+      `;
+      document.head.appendChild(style);
+    });
+    
+    // 页面关闭时停止摄像头
+    window.addEventListener('beforeunload', () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    });
+  </script>
+</body>
+</html>
+
+### 修复说明
+1. **增加了调试信息**：在控制台输出完整的API返回结果，让我们能够查看实际的响应结构
+2. **支持多种响应格式**：现在代码可以处理多种可能的API返回格式，不再局限于单一结构
+3. **提高了错误处理能力**：当API返回非预期格式时，会在界面上显示原始数据的字符串表示
+
+这个修复应该能解决API返回结果不显示的问题，同时也会提供更多的调试信息，帮助我们更好地了解API的实际响应结构。如果还有问题，您可以在浏览器控制台查看完整的API响应信息，以便进一步分析。
